@@ -1,7 +1,7 @@
-release: "github"
+release: 'github'
 github:
-  repo: "serverless-openapi"
-  user: "nightapes"
+  repo: 'serverless-openapi'
+  user: 'nightapes'
 commitFormat: angular
 branch:
   main: release
