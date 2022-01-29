@@ -1,0 +1,12 @@
+release: 'github'
+github:
+  repo: 'serverless-openapi'
+  user: 'nightapes'
+commitFormat: angular
+branch:
+  main: release
+hooks:
+  preRelease:
+    - npm version --prefix packages/serverless-openapi --new-version $(./go-semantic-release next)
+    - echo //registry.npmjs.org/:_authToken=$NPM_TOKEN >> ~/.npmrc
+    - yarn publish dist/packages/serverless-openapi

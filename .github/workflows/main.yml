@@ -1,0 +1,53 @@
+name: Node
+on: [push, pull_request]
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v1
+
+      - name: Set up Node 16
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16.x'
+          cache: 'npm'
+        id: node
+
+      - name: Install
+        run: |
+          npm ci
+      - name: Derive appropriate SHAs for base and head for `nx affected` commands
+        uses: nrwl/nx-set-shas@v2
+        with:
+          main-branch-name: 'main'
+
+      - name: Lint
+        run: |
+          npm run nx workspace-lint
+          npm run nx affected -- --target=lint --parallel=5 --all
+
+      - name: Build
+        run: npm run nx build serverless-openapi
+
+      - name: Download releaser
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          wget https://github.com/Nightapes/go-semantic-release/releases/download/v2.0.1/go-semantic-release.linux_x86_64.zip
+          unzip go-semantic-release.linux_x86_64.zip
+          rm go-semantic-release.linux_x86_64.zip
+          mv go-semantic-release.linux_x86_64 go-semantic-release
+          chmod +x ./go-semantic-release
+          git config user.name "Nightapes"
+          git config user.email svbeisch@gmail.com
+          ./go-semantic-release next
+      - name: Release npm
+        if: github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          ./go-semantic-release release -l info
