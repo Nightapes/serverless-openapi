@@ -2,7 +2,7 @@
   "name": "@nightapes/serverless-openapi",
   "version": "0.0.1",
   "peerDependencies": {
-    "serverless": ">2.x"
+    "serverless": "2.x || 3.x"
   },
   "engines": {
     "node": ">=10.0"
