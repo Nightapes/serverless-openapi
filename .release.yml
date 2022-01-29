@@ -8,4 +8,4 @@ branch:
 hooks:
   preRelease:
     - npm version --prefix packages/serverless-openapi --new-version $(./go-semantic-release next)
-    - npm publish dist/packages/serverless-openapi
+    - npm publish dist/packages/serverless-openapi --access public
