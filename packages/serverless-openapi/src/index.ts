@@ -1,12 +1,10 @@
 import Serverless from 'serverless';
 import { JSONSchema7 } from 'json-schema';
 import { customOpenApi } from './lib/customTypes';
-import { OpenAPIV2, OpenAPIV3, OpenAPIV3_1 } from 'openapi-types';
+import { OpenAPIV3 } from 'openapi-types';
 import { writeFileSync } from 'fs';
-import {
-  ApiGatewayEvent,
-  HttpMethod,
-} from 'serverless/plugins/aws/package/compile/events/apiGateway/lib/validate';
+import { HttpMethod } from 'serverless/plugins/aws/package/compile/events/apiGateway/lib/validate';
+import { dump } from 'js-yaml';
 
 type CommandsDefinition = Record<
   string,
@@ -65,7 +63,7 @@ export class ServerlessPlugin {
             type: 'string',
             usage:
               'Specify the output location' +
-              '(e.g. "--out \'./openapi.yaml\'" or "-o \'./openapi.yaml\'")',
+              '(e.g. "--out \'./openapi.yaml\'" or "-o \'./openapi.json\'")',
             required: false,
             shortcut: 'o',
           },
@@ -113,7 +111,7 @@ export class ServerlessPlugin {
     this.serverless.cli.log(message, '', options);
   }
 
-  private async generate() {
+  private generate() {
     this.log('Generate open api');
     const openApi: OpenAPIV3.Document = {
       openapi: '3.0.0',
@@ -180,7 +178,17 @@ export class ServerlessPlugin {
       }
     }
 
-    writeFileSync('openapi.json', JSON.stringify(openApi, undefined, '  '));
+    let out = 'openapi.json';
+    if (this.options['out']) {
+      out = this.options['out'];
+    }
+
+    let output = JSON.stringify(openApi, undefined, '  ');
+    if (out.endsWith('.yaml') || out.endsWith('.yml')) {
+      output = dump(openApi);
+    }
+
+    writeFileSync(out, output);
   }
   getMethod(method: HttpMethod): OpenAPIV3.HttpMethods {
     switch (method) {

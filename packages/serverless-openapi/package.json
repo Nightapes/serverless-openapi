@@ -14,5 +14,10 @@
   },
   "bugs": {
     "url": "https://github.com/Nightapes/serverless-openapi/issues"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "tslib": "^2.0.0",
+    "openapi-types": "^10.0.0"
   }
 }
