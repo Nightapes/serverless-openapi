@@ -23,6 +23,12 @@ type CommandsDefinition = Record<
   }
 >;
 
+interface Schema {
+  schema?: JSONSchema7;
+  name: string;
+  description?: string;
+}
+
 interface HttpEvent {
   path: string;
   method: HttpMethod;
@@ -30,14 +36,13 @@ interface HttpEvent {
   cors?: any;
   operationId: string;
   integration?: string | undefined;
-  responseSchemas: {
-    [key: string]: {
-      'application/json': {
-        schema?: JSONSchema7;
-        name: string;
-        description?: string;
-      };
+  request: {
+    schemas: {
+      'application/json': Schema;
     };
+  };
+  responseSchemas: {
+    [key: string]: { 'application/json': Schema };
   };
 }
 
@@ -150,31 +155,24 @@ export class ServerlessPlugin {
           openApi.paths[path] = {};
         }
 
-        const responseSchemas = httpEvent.responseSchemas;
+        const responses = this.handleResponses(
+          httpEvent.responseSchemas,
+          openApi
+        );
 
-        const responses: OpenAPIV3.ResponsesObject = {};
-
-        for (const code of Object.keys(responseSchemas)) {
-          const schema = responseSchemas[code]['application/json'];
-          openApi.components.schemas[schema.name] = schema.schema as any;
-          responses[code] = {
-            description: schema.description,
-          };
-          if (schema.schema) {
-            responses[code]['content'] = {
-              'application/json': {
-                schema: {
-                  $ref: '#/components/schemas/' + schema.name,
-                },
-              },
-            };
-          }
-        }
-
-        openApi.paths[path][this.getMethod(httpEvent.method)] = {
+        const operation: OpenAPIV3.OperationObject = {
           operationId: httpEvent.operationId,
           responses: responses,
-        } as OpenAPIV3.OperationObject;
+        };
+
+        if (httpEvent.request && httpEvent.request.schemas) {
+          operation.requestBody = this.handleRequestBody(
+            httpEvent.request.schemas,
+            openApi
+          );
+        }
+
+        openApi.paths[path][this.getMethod(httpEvent.method)] = operation;
       }
     }
 
@@ -190,6 +188,60 @@ export class ServerlessPlugin {
 
     writeFileSync(out, output);
   }
+
+  private handleRequestBody(
+    requestSchemas: { 'application/json': Schema },
+    openApi: OpenAPIV3.Document
+  ) {
+    const request: OpenAPIV3.RequestBodyObject = {
+      content: {},
+      required: true,
+    };
+
+    const schemaJSON = requestSchemas['application/json'];
+    request.description = schemaJSON.description;
+
+    if (schemaJSON.schema) {
+      request['content'] = {
+        'application/json': {
+          schema: {
+            $ref: '#/components/schemas/' + schemaJSON.name,
+          },
+        },
+      };
+      delete schemaJSON.schema['$schema'];
+      openApi.components.schemas[schemaJSON.name] = schemaJSON.schema as any;
+    }
+    return request;
+  }
+
+  private handleResponses(
+    responseSchemas: { [key: string]: { 'application/json': Schema } },
+    openApi: OpenAPIV3.Document
+  ) {
+    const responses: OpenAPIV3.ResponsesObject = {};
+
+    for (const code of Object.keys(responseSchemas)) {
+      const schemaJSON = responseSchemas[code]['application/json'];
+      responses[code] = {
+        description: schemaJSON.description,
+      };
+      if (schemaJSON.schema) {
+        responses[code]['content'] = {
+          'application/json': {
+            schema: {
+              $ref: '#/components/schemas/' + schemaJSON.name,
+            },
+          },
+        };
+        delete schemaJSON.schema['$schema'];
+        openApi.components.schemas[schemaJSON.name] = schemaJSON.schema as any;
+      }
+    }
+
+    return responses;
+  }
+
   getMethod(method: HttpMethod): OpenAPIV3.HttpMethods {
     switch (method) {
       case 'get':
