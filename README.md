@@ -16,7 +16,7 @@ Add plugin into your `serverless.yml` file
 
 ```yml
 plugins:
-  - serverless-openapi
+  - '@nightapes/serverless-openapi'
 ```
 
 ## Add basic info
