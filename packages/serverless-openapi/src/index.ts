@@ -4,8 +4,8 @@ import { customProperties } from './lib/custom.properties';
 import { OpenAPIV3 } from 'openapi-types';
 import { writeFileSync } from 'fs';
 import { HttpMethod } from 'serverless/plugins/aws/package/compile/events/apiGateway/lib/validate';
-import { dump } from 'js-yaml';
 import { functioneventProperties } from './lib/functionEvent.properties';
+import { dump } from 'js-yaml';
 
 type CommandsDefinition = Record<
   string,
@@ -200,7 +200,7 @@ export class ServerlessPlugin {
 
     let output = JSON.stringify(openApi, undefined, '  ');
     if (out.endsWith('.yaml') || out.endsWith('.yml')) {
-      output = dump(openApi);
+      output = dump(JSON.parse(output));
     }
 
     writeFileSync(out, output);
