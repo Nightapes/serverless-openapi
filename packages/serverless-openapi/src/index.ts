@@ -1,10 +1,11 @@
 import Serverless from 'serverless';
 import { JSONSchema7 } from 'json-schema';
-import { customOpenApi } from './lib/customTypes';
+import { customProperties } from './lib/custom.properties';
 import { OpenAPIV3 } from 'openapi-types';
 import { writeFileSync } from 'fs';
 import { HttpMethod } from 'serverless/plugins/aws/package/compile/events/apiGateway/lib/validate';
 import { dump } from 'js-yaml';
+import { functioneventProperties } from './lib/functionEvent.properties';
 
 type CommandsDefinition = Record<
   string,
@@ -29,6 +30,16 @@ interface Schema {
   description?: string;
 }
 
+interface CustomProperties {
+  version: string;
+  title: string;
+  description?: string;
+  tags?: { name: string; description?: string }[];
+  defaultResponse?: {
+    'application/json': Schema;
+  };
+}
+
 interface HttpEvent {
   path: string;
   method: HttpMethod;
@@ -36,6 +47,8 @@ interface HttpEvent {
   cors?: any;
   operationId: string;
   integration?: string | undefined;
+  tags: string[];
+  defaultResponse: true;
   request: {
     schemas: {
       'application/json': Schema;
@@ -76,35 +89,12 @@ export class ServerlessPlugin {
       },
     };
 
-    serverless.configSchemaHandler.defineCustomProperties(customOpenApi);
+    serverless.configSchemaHandler.defineCustomProperties(customProperties);
 
     serverless.configSchemaHandler.defineFunctionEventProperties(
       'aws',
       'http',
-      {
-        properties: {
-          responseSchemas: {
-            type: 'object',
-            additionalProperties: false,
-            patternProperties: {
-              '^[0-9]{3}$': {
-                type: 'object',
-                properties: {
-                  'application/json': {
-                    type: 'object',
-                    properties: {
-                      schema: { type: 'object' },
-                      name: { type: 'string' },
-                      description: { type: 'string' },
-                    },
-                    required: ['description'],
-                  },
-                },
-              },
-            },
-          },
-        },
-      } as JSONSchema7
+      functioneventProperties
     );
 
     this.hooks = {
@@ -130,12 +120,27 @@ export class ServerlessPlugin {
       },
     };
 
-    const customOpenApi = this.serverless.service.custom.openapi;
+    const customOpenApi = this.serverless.service.custom
+      .openapi as CustomProperties;
 
     openApi.info = {
       title: customOpenApi.title,
       version: customOpenApi.version,
+      description: customOpenApi.description,
     };
+
+    openApi.tags = customOpenApi.tags;
+
+    let defaultSchema: OpenAPIV3.ResponsesObject | undefined;
+
+    if (customOpenApi.defaultResponse) {
+      defaultSchema = this.handleResponses(
+        {
+          default: customOpenApi.defaultResponse,
+        },
+        openApi
+      );
+    }
 
     for (const func of this.serverless.service.getAllFunctions()) {
       const data = this.serverless.service.getFunction(func);
@@ -160,9 +165,17 @@ export class ServerlessPlugin {
           openApi
         );
 
+        if (httpEvent.defaultResponse && defaultSchema) {
+          responses['default'] = defaultSchema['default'];
+        }
+        if (httpEvent.defaultResponse && !defaultSchema) {
+          this.log('Default schema not found, please add default schema');
+        }
+
         const operation: OpenAPIV3.OperationObject = {
           operationId: httpEvent.operationId,
           responses: responses,
+          tags: httpEvent.tags,
         };
 
         if (httpEvent.request && httpEvent.request.schemas) {
@@ -176,6 +189,10 @@ export class ServerlessPlugin {
       }
     }
 
+    this.saveToFile(openApi);
+  }
+
+  private saveToFile(openApi: OpenAPIV3.Document) {
     let out = 'openapi.json';
     if (this.options['out']) {
       out = this.options['out'];
@@ -218,7 +235,7 @@ export class ServerlessPlugin {
   private handleResponses(
     responseSchemas: { [key: string]: { 'application/json': Schema } },
     openApi: OpenAPIV3.Document
-  ) {
+  ): OpenAPIV3.ResponsesObject {
     const responses: OpenAPIV3.ResponsesObject = {};
 
     for (const code of Object.keys(responseSchemas)) {

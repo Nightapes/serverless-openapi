@@ -19,7 +19,7 @@ plugins:
   - '@nightapes/serverless-openapi'
 ```
 
-## Add basic info
+## Add basic info and tags
 
 Under `custom` add
 
@@ -29,17 +29,22 @@ custom:
     title: 'my fancy openapi'
     version: '1.0.0'
     description: 'My description of the serverless api'
+    tags:
+      - name: Settings
+        description: Description
 ```
 
 ## Example for request and response schema
 
-Works only for http events, the request is the default serverless request schema.
+Works only for aws http events, the request is the default serverless request schema.
 
 ```yml
 events:
   - http:
       path: v1/user-settings
       method: put
+      tags:
+        - Settings
       authorizer:
         name: authorizer
         scopes:
@@ -60,6 +65,29 @@ events:
         204:
           application/json:
             description: 'OK'
+```
+
+## Default respsonse
+
+You can set a default response via
+
+```yml
+custom:
+  openapi:
+    defaultResponse:
+      application/json:
+        schema: ${file(./apiError.type.json)}
+        description: 'Default api error'
+        name: ApiError
+```
+
+Enable the default response per function via
+
+```yml
+events:
+  - http:
+      path: v1/user-settings
+      defaultResponse: true
 ```
 
 ## TODO
