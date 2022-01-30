@@ -19,6 +19,18 @@ plugins:
   - '@nightapes/serverless-openapi'
 ```
 
+To generate api run
+
+```bash
+serverless openapi
+```
+
+If you want to change the format (json or yaml) or the file name use
+
+```bash
+serverless openapi -o openapi.yaml
+```
+
 ## Add basic info and tags
 
 Under `custom` add
