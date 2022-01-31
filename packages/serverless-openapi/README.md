@@ -16,10 +16,22 @@ Add plugin into your `serverless.yml` file
 
 ```yml
 plugins:
-  - serverless-openapi
+  - '@nightapes/serverless-openapi'
 ```
 
-## Add basic info
+To generate api run
+
+```bash
+serverless openapi
+```
+
+If you want to change the format (json or yaml) or the file name use
+
+```bash
+serverless openapi -o openapi.yaml
+```
+
+### Add basic info and tags
 
 Under `custom` add
 
@@ -29,37 +41,95 @@ custom:
     title: 'my fancy openapi'
     version: '1.0.0'
     description: 'My description of the serverless api'
+    tags:
+      - name: Settings
+        description: Description
 ```
 
-## Example for request and response schema
+### Example for request and response schema
 
-Works only for http events, the request is the default serverless request schema.
+Works only for aws http events, the request is the default serverless request schema.
 
 ```yml
-events:
-  - http:
-      path: v1/user-settings
-      method: put
-      authorizer:
-        name: authorizer
-        scopes:
-          - admin
-      operationId: setUserSettings
-      cors: true
-      request:
-        schemas:
-          application/json:
-            schema: ${file(./your-schema.json)}
-            name: UserSettings
-      responseSchemas:
-        200:
-          application/json:
-            schema: ${file(./your-schema.json)}
-            name: UserSettings
-            description: 'UserSettings'
-        204:
-          application/json:
-            description: 'OK'
+functions:
+  create:
+    handler: posts.create
+      events:
+        - http:
+            path: v1/user-settings
+            method: put
+            tags:
+              - Settings
+            authorizer:
+              name: authorizer
+              scopes:
+                - admin
+            operationId: setUserSettings
+            cors: true
+            request:
+              schemas:
+                application/json:
+                  schema: ${file(./your-schema.json)}
+                  name: UserSettings
+            responseSchemas:
+              200:
+                application/json:
+                  schema: ${file(./your-schema.json)}
+                  name: UserSettings
+                  description: 'UserSettings'
+              204:
+                application/json:
+                  description: 'OK'
+```
+
+### Default respsonse
+
+You can set a default response via
+
+```yml
+custom:
+  openapi:
+    defaultResponse:
+      application/json:
+        schema: ${file(./apiError.type.json)}
+        description: 'Default api error'
+        name: ApiError
+```
+
+Enable the default response per function via
+
+```yml
+functions:
+  create:
+    handler: posts.create
+      events:
+        - http:
+            path: v1/user-settings
+            defaultResponse: true
+```
+
+### Parameters
+
+Following format to add paramters is supported. See [SLS Doc](https://www.serverless.com/framework/docs/providers/aws/events/apigateway#request-parameters)
+
+All parameters will be interpreted as `string`
+
+```yml
+functions:
+  create:
+    handler: posts.create
+    events:
+      - http:
+          path: posts/create
+          method: post
+          request:
+            parameters:
+              querystrings:
+                url: true
+              headers:
+                foo: false
+              paths:
+                bar: false
 ```
 
 ## TODO
