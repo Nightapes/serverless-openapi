@@ -83,11 +83,11 @@ export class Generator {
 
       for (const event of data.events) {
         if (!event['http']) {
-          return;
+          break;
         }
 
         if (typeof event['http'] === 'string') {
-          return;
+          break;
         }
 
         const httpEvent = event['http'] as HttpEvent;
