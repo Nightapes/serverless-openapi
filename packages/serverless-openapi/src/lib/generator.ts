@@ -212,10 +212,16 @@ export class Generator {
   }
 
   private handleResponses(
-    responseSchemas: { [key: string]: { 'application/json': Schema } },
+    responseSchemas:
+      | { [key: string]: { 'application/json': Schema } }
+      | undefined,
     openApi: OpenAPIV3.Document
-  ): OpenAPIV3.ResponsesObject {
+  ): OpenAPIV3.ResponsesObject | undefined {
     const responses: OpenAPIV3.ResponsesObject = {};
+
+    if (!responseSchemas) {
+      return undefined;
+    }
 
     for (const code of Object.keys(responseSchemas)) {
       const schemaJSON = responseSchemas[code]['application/json'];
