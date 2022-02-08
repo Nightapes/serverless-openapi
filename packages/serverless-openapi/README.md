@@ -31,6 +31,14 @@ If you want to change the format (json or yaml) or the file name use
 serverless openapi -o openapi.yaml
 ```
 
+or set it via serverless yaml
+
+```yml
+custom:
+  openapi:
+    out: openapi.yaml
+```
+
 ### Add basic info and tags
 
 Under `custom` add

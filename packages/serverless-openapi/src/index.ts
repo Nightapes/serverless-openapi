@@ -1,5 +1,5 @@
 import Serverless from 'serverless';
-import { customProperties } from './lib/custom.properties';
+import { CustomProperties, customProperties } from './lib/custom.properties';
 import { OpenAPIV3 } from 'openapi-types';
 import { writeFileSync } from 'fs';
 import { functioneventProperties } from './lib/functionEvent.properties';
@@ -47,17 +47,19 @@ export class ServerlessPlugin {
 
     this.hooks = {
       'openapi:serverless': this.generate.bind(this),
+      'package:initialize': this.generate.bind(this),
     };
   }
 
   private generate() {
     this.serverless.cli.log('Generate open api');
     const openApi = new Generator().generate(this.serverless);
-    this.saveToFile(openApi);
+    const customOpenApi = this.serverless.service.custom
+      .openapi as CustomProperties;
+    this.saveToFile(openApi, customOpenApi.out);
   }
 
-  private saveToFile(openApi: OpenAPIV3.Document) {
-    let out = 'openapi.json';
+  private saveToFile(openApi: OpenAPIV3.Document, out = 'openapi.json') {
     if (this.options['out']) {
       out = this.options['out'];
     }

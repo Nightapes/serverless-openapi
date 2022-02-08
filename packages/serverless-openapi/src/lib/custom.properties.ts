@@ -1,4 +1,16 @@
 import { JSONSchema7 } from 'json-schema';
+import { Schema } from './response.types';
+
+export interface CustomProperties {
+  out?: string;
+  version: string;
+  title: string;
+  description?: string;
+  tags?: { name: string; description?: string }[];
+  defaultResponse?: {
+    'application/json': Schema;
+  };
+}
 
 export const customProperties: JSONSchema7 = {
   properties: {
@@ -6,6 +18,9 @@ export const customProperties: JSONSchema7 = {
       type: 'object',
       additionalProperties: false,
       properties: {
+        out: {
+          type: 'string',
+        },
         version: {
           type: 'string',
         },

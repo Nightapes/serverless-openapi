@@ -1,23 +1,8 @@
 import Serverless from 'serverless';
-import { JSONSchema7 } from 'json-schema';
 import { OpenAPIV3 } from 'openapi-types';
 import { HttpMethod } from 'serverless/plugins/aws/package/compile/events/apiGateway/lib/validate';
-
-interface Schema {
-  schema?: JSONSchema7;
-  name: string;
-  description?: string;
-}
-
-interface CustomProperties {
-  version: string;
-  title: string;
-  description?: string;
-  tags?: { name: string; description?: string }[];
-  defaultResponse?: {
-    'application/json': Schema;
-  };
-}
+import { Schema } from './response.types';
+import { CustomProperties } from './custom.properties';
 
 interface HttpEvent {
   path: string;
