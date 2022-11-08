@@ -1,5 +1,4 @@
 {
-  "root": "packages/serverless-openapi",
   "sourceRoot": "packages/serverless-openapi/src",
   "projectType": "library",
   "targets": {
@@ -14,12 +13,12 @@
       "executor": "@nrwl/jest:jest",
       "outputs": ["coverage/packages/serverless-openapi"],
       "options": {
-        "jestConfig": "packages/serverless-openapi/jest.config.js",
+        "jestConfig": "packages/serverless-openapi/jest.config.ts",
         "passWithNoTests": true
       }
     },
     "build": {
-      "executor": "@nrwl/node:package",
+      "executor": "@nrwl/js:tsc",
       "outputs": ["{options.outputPath}"],
       "options": {
         "outputPath": "dist/packages/serverless-openapi",
