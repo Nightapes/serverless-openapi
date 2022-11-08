@@ -6,6 +6,7 @@ import Aws, {
   HttpAuthorizer,
   HttpRequestParametersValidation,
 } from 'serverless/plugins/aws/provider/awsProvider';
+import { Log } from './sls.types';
 
 interface HttpEvent extends Aws.Http {
   operationId: string;
@@ -21,7 +22,7 @@ interface HttpEvent extends Aws.Http {
 }
 
 export class Generator {
-  constructor(private log: any) {}
+  constructor(private log: Log) {}
 
   public generate(serverless: Serverless): OpenAPIV3.Document {
     const openApi: OpenAPIV3.Document = {
