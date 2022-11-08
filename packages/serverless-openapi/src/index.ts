@@ -72,7 +72,7 @@ export class ServerlessPlugin {
     if (out.endsWith('.yaml') || out.endsWith('.yml')) {
       output = dump(JSON.parse(output));
     }
-    this.log.notice('Saved open api to ', out);
+    this.log.notice('Saved open api to '+ out);
 
     writeFileSync(out, output);
   }
