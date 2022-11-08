@@ -6,18 +6,19 @@ import { functioneventProperties } from './lib/functionEvent.properties';
 import { dump } from 'js-yaml';
 import { CommandsDefinition } from './lib/comand.types';
 import { Generator } from './lib/generator';
+import { Log } from './lib/sls.types';
 
 export class ServerlessPlugin {
   serverless: Serverless;
   options: Serverless.Options & { [key: string]: any };
   hooks: { [key: string]: Serverless.FunctionDefinitionHandler };
   commands: CommandsDefinition;
-  log: any
+  log: Log
 
   constructor(
     serverless: Serverless,
     options: Serverless.Options & { [key: string]: any },
-    { log }
+    { log } : {log: Log}
   ) {
     this.serverless = serverless;
     this.options = options;
@@ -55,7 +56,7 @@ export class ServerlessPlugin {
   }
 
   private generate() {
-    this.log.info('Generate open api');
+    this.log.notice('Generate open api');
     const openApi = new Generator(this.log).generate(this.serverless);
     const customOpenApi = this.serverless.service.custom
       .openapi as CustomProperties;
@@ -71,6 +72,7 @@ export class ServerlessPlugin {
     if (out.endsWith('.yaml') || out.endsWith('.yml')) {
       output = dump(JSON.parse(output));
     }
+    this.log.notice('Saved open api to ', out);
 
     writeFileSync(out, output);
   }
