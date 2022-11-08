@@ -140,7 +140,32 @@ functions:
                 bar: false
 ```
 
+### Authorization
+
+At the moment only Bearer Auth with custom authorizer is supported
+See: https://www.serverless.com/framework/docs/providers/aws/events/apigateway#http-endpoints-with-custom-authorizers
+
+```yml
+custom:
+  openapi:
+    securitySchemes: 
+      "authorizer":  // Name of the custom authorizer
+        type: http
+        scheme: bearer
+        bearerFormat: JWT
+```
+
+Inside your function: 
+```yml
+...
+  events:
+    - http:
+        authorizer:
+          name: authorizer        
+...
+```
+
 ## TODO
 
 - Servers
-- Authorizer
+- Authorizer 

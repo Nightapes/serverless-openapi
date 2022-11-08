@@ -1,27 +1,19 @@
 import Serverless from 'serverless';
 import { OpenAPIV3 } from 'openapi-types';
-import { HttpMethod } from 'serverless/plugins/aws/package/compile/events/apiGateway/lib/validate';
 import { Schema } from './response.types';
 import { CustomProperties } from './custom.properties';
+import Aws, {
+  HttpAuthorizer,
+  HttpRequestParametersValidation,
+} from 'serverless/plugins/aws/provider/awsProvider';
 
-interface HttpEvent {
-  path: string;
-  method: HttpMethod;
-  authorizer?: any;
-  cors?: any;
+interface HttpEvent extends Aws.Http {
   operationId: string;
-  integration?: string | undefined;
   tags: string[];
   defaultResponse: true;
   request?: {
-    parameters?: {
-      querystrings?: { [key: string]: boolean };
-      headers?: { [key: string]: boolean };
-      paths?: { [key: string]: boolean };
-    };
-    schemas: {
-      'application/json': Schema;
-    };
+    parameters?: HttpRequestParametersValidation | undefined;
+    schemas?: { 'application/json': Record<string, unknown> } | undefined;
   };
   responseSchemas?: {
     [key: string]: { 'application/json': Schema };
@@ -29,6 +21,8 @@ interface HttpEvent {
 }
 
 export class Generator {
+  constructor(private log: any) {}
+
   public generate(serverless: Serverless): OpenAPIV3.Document {
     const openApi: OpenAPIV3.Document = {
       openapi: '3.0.0',
@@ -86,13 +80,30 @@ export class Generator {
           openApi
         );
 
+        const auth: OpenAPIV3.SecurityRequirementObject[] | undefined = [];
+        if (httpEvent.authorizer) {
+          for (const key in customOpenApi.securitySchemes) {
+            let name = '';
+
+            if (typeof httpEvent.authorizer === 'string') {
+              name = httpEvent.authorizer;
+            } else {
+              name = httpEvent.authorizer.name;
+            }
+
+            if (key === name) {
+              auth.push({
+                [key]: [],
+              });
+            }
+          }
+        }
+
         if (httpEvent.defaultResponse && defaultSchema) {
           responses['default'] = defaultSchema['default'];
         }
         if (httpEvent.defaultResponse && !defaultSchema) {
-          serverless.cli.log(
-            'Default schema not found, please add default schema'
-          );
+          this.log.error('Default schema not found, please add default schema');
         }
 
         const operation: OpenAPIV3.OperationObject = {
@@ -100,6 +111,7 @@ export class Generator {
           responses: responses,
           tags: httpEvent.tags,
           parameters: [],
+          security: auth,
         };
 
         operation.parameters = this.handleParameters(httpEvent);
@@ -112,6 +124,15 @@ export class Generator {
         }
 
         openApi.paths[path][this.getMethod(httpEvent.method)] = operation;
+      }
+    }
+
+    if (customOpenApi.securitySchemes) {
+      openApi.components.securitySchemes = {};
+      for (const key in customOpenApi.securitySchemes) {
+        const value = customOpenApi.securitySchemes[key];
+        delete value['default'];
+        openApi.components.securitySchemes[key] = value;
       }
     }
 
@@ -171,7 +192,7 @@ export class Generator {
   }
 
   private handleRequestBody(
-    requestSchemas: { 'application/json': Schema },
+    requestSchemas: { 'application/json': any },
     openApi: OpenAPIV3.Document
   ) {
     const request: OpenAPIV3.RequestBodyObject = {
@@ -229,7 +250,7 @@ export class Generator {
     return responses;
   }
 
-  private getMethod(method: HttpMethod): OpenAPIV3.HttpMethods {
+  private getMethod(method: string): OpenAPIV3.HttpMethods {
     switch (method) {
       case 'get':
         return OpenAPIV3.HttpMethods.GET;

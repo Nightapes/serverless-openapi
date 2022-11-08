@@ -12,13 +12,16 @@ export class ServerlessPlugin {
   options: Serverless.Options & { [key: string]: any };
   hooks: { [key: string]: Serverless.FunctionDefinitionHandler };
   commands: CommandsDefinition;
+  log: any
 
   constructor(
     serverless: Serverless,
-    options: Serverless.Options & { [key: string]: any }
+    options: Serverless.Options & { [key: string]: any },
+    { log }
   ) {
     this.serverless = serverless;
     this.options = options;
+    this.log = log
 
     this.commands = {
       openapi: {
@@ -52,8 +55,8 @@ export class ServerlessPlugin {
   }
 
   private generate() {
-    this.serverless.cli.log('Generate open api');
-    const openApi = new Generator().generate(this.serverless);
+    this.log.info('Generate open api');
+    const openApi = new Generator(this.log).generate(this.serverless);
     const customOpenApi = this.serverless.service.custom
       .openapi as CustomProperties;
     this.saveToFile(openApi, customOpenApi.out);
