@@ -36,9 +36,9 @@
     "packages/**"
   ],
   "dependencies": {
+    "@apidevtools/json-schema-ref-parser": "^10.1.0",
     "js-yaml": "^4.1.0",
     "openapi-types": "^12.0.2",
     "tslib": "^2.4.1"
   }
 }
-

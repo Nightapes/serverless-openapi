@@ -14,6 +14,7 @@ export interface CustomProperties {
   defaultResponse?: {
     'application/json': Schema;
   };
+  schemaFolder?: string;
 }
 
 export const customProperties: JSONSchema7 = {
@@ -22,6 +23,9 @@ export const customProperties: JSONSchema7 = {
       type: 'object',
       additionalProperties: false,
       properties: {
+        schemaFolder: {
+          type: 'string',
+        },
         out: {
           type: 'string',
         },
