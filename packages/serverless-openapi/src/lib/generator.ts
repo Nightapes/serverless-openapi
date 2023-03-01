@@ -3,7 +3,6 @@ import { OpenAPIV3 } from 'openapi-types';
 import { Schema } from './response.types';
 import { CustomProperties } from './custom.properties';
 import Aws, {
-  HttpAuthorizer,
   HttpRequestParametersValidation,
 } from 'serverless/plugins/aws/provider/awsProvider';
 import { Log } from './sls.types';

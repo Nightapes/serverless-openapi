@@ -1,6 +1,5 @@
 import Serverless from 'serverless';
 import { CustomProperties, customProperties } from './lib/custom.properties';
-import { OpenAPIV3 } from 'openapi-types';
 import { writeFileSync } from 'fs';
 import { functioneventProperties } from './lib/functionEvent.properties';
 import { dump } from 'js-yaml';
@@ -8,21 +7,25 @@ import { CommandsDefinition } from './lib/comand.types';
 import { Generator } from './lib/generator';
 import { Log } from './lib/sls.types';
 
+import $RefParser from '@apidevtools/json-schema-ref-parser';
+import { readFile } from 'fs/promises';
+import * as path from 'path';
+
 export class ServerlessPlugin {
   serverless: Serverless;
   options: Serverless.Options & { [key: string]: any };
   hooks: { [key: string]: Serverless.FunctionDefinitionHandler };
   commands: CommandsDefinition;
-  log: Log
+  log: Log;
 
   constructor(
     serverless: Serverless,
     options: Serverless.Options & { [key: string]: any },
-    { log } : {log: Log}
+    { log }: { log: Log }
   ) {
     this.serverless = serverless;
     this.options = options;
-    this.log = log
+    this.log = log;
 
     this.commands = {
       openapi: {
@@ -55,15 +58,31 @@ export class ServerlessPlugin {
     };
   }
 
-  private generate() {
+  private async generate() {
     this.log.notice('Generate open api');
     const openApi = new Generator(this.log).generate(this.serverless);
     const customOpenApi = this.serverless.service.custom
       .openapi as CustomProperties;
-    this.saveToFile(openApi, customOpenApi.out);
+
+
+    const api = await $RefParser.bundle(openApi as any, {
+      resolve: {
+        file: {
+            canRead: ['.yml', '.json'],
+            read: async (ref) => {
+              const orgRef = (ref.url as string).replace(process.cwd(), "")
+              const realPath = path.join(process.cwd(), customOpenApi.schemaFolder, orgRef )
+              return await readFile(realPath)
+            }
+        }
+      }
+    });
+
+    this.log.debug(`API name: ${openApi.info.title}, Version: ${openApi.info.version}`);
+    this.saveToFile(api, customOpenApi.out);
   }
 
-  private saveToFile(openApi: OpenAPIV3.Document, out = 'openapi.json') {
+  private saveToFile(openApi: any, out = 'openapi.json') {
     if (this.options['out']) {
       out = this.options['out'];
     }
@@ -72,7 +91,7 @@ export class ServerlessPlugin {
     if (out.endsWith('.yaml') || out.endsWith('.yml')) {
       output = dump(JSON.parse(output));
     }
-    this.log.notice('Saved open api to '+ out);
+    this.log.notice('Saved open api to ' + out);
 
     writeFileSync(out, output);
   }
