@@ -202,17 +202,18 @@ export class Generator {
 
     const schemaJSON = requestSchemas['application/json'];
     request.description = schemaJSON.description;
+    const name = schemaJSON.customName ?? schemaJSON.name;
 
     if (schemaJSON.schema) {
       request['content'] = {
         'application/json': {
           schema: {
-            $ref: '#/components/schemas/' + schemaJSON.name,
+            $ref: '#/components/schemas/' + name,
           },
         },
       };
       delete schemaJSON.schema['$schema'];
-      openApi.components.schemas[schemaJSON.name] = schemaJSON.schema as any;
+      openApi.components.schemas[name] = schemaJSON.schema as any;
     }
     return request;
   }

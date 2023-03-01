@@ -1,7 +1,7 @@
 import Serverless from 'serverless';
 import { CustomProperties, customProperties } from './lib/custom.properties';
 import { writeFileSync } from 'fs';
-import { functioneventProperties } from './lib/functionEvent.properties';
+import { functionEventProperties } from './lib/functionEvent.properties';
 import { dump } from 'js-yaml';
 import { CommandsDefinition } from './lib/comand.types';
 import { Generator } from './lib/generator';
@@ -49,7 +49,7 @@ export class ServerlessPlugin {
     serverless.configSchemaHandler.defineFunctionEventProperties(
       'aws',
       'http',
-      functioneventProperties
+      functionEventProperties
     );
 
     this.hooks = {

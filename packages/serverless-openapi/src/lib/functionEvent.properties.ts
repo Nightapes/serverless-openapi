@@ -1,6 +1,6 @@
 import { JSONSchema7 } from 'json-schema';
 
-export const functioneventProperties = {
+export const functionEventProperties = {
   properties: {
     tags: {
       type: 'array',
