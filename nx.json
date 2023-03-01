@@ -27,5 +27,6 @@
     "lint": {
       "inputs": ["default", "{workspaceRoot}/.eslintrc.json"]
     }
-  }
+  },
+  "defaultProject": "serverless-openapi"
 }
