@@ -6,6 +6,9 @@ import Aws, {
   HttpRequestParametersValidation,
 } from 'serverless/plugins/aws/provider/awsProvider';
 import { Log } from './sls.types';
+import $RefParser from '@apidevtools/json-schema-ref-parser';
+import { readFile } from 'fs/promises';
+import * as path from 'path';
 
 interface HttpEvent extends Aws.Http {
   operationId: string;
@@ -23,7 +26,7 @@ interface HttpEvent extends Aws.Http {
 export class Generator {
   constructor(private log: Log) {}
 
-  public generate(serverless: Serverless): OpenAPIV3.Document {
+  public async generate(serverless: Serverless): Promise<OpenAPIV3.Document> {
     const openApi: OpenAPIV3.Document = {
       openapi: '3.0.0',
       info: {
@@ -70,15 +73,17 @@ export class Generator {
         }
 
         const httpEvent = event['http'] as HttpEvent;
-        const path = '/' + httpEvent.path;
-        if (!openApi.paths[path]) {
-          openApi.paths[path] = {};
+        const httpPath = '/' + httpEvent.path;
+        if (!openApi.paths[httpPath]) {
+          openApi.paths[httpPath] = {};
         }
 
         const responses = this.handleResponses(
           httpEvent.responseSchemas,
           openApi
         );
+        // Clean up, as not needed in serverless
+        delete httpEvent.responseSchemas
 
         const auth: OpenAPIV3.SecurityRequirementObject[] | undefined = [];
         if (httpEvent.authorizer) {
@@ -121,9 +126,23 @@ export class Generator {
             httpEvent.request.schemas,
             openApi
           );
+
+          httpEvent.request.schemas = await $RefParser.dereference(JSON.parse(JSON.stringify(httpEvent.request.schemas)), {
+            resolve: {
+              file: {
+                  canRead: ['.yml', '.json'],
+                  read: async (ref) => {
+                    const orgRef = (ref.url as string).replace(process.cwd(), "")
+                    const realPath = path.join(process.cwd(), customOpenApi.schemaFolder, orgRef )
+                    return await readFile(realPath)
+                  }
+              }
+            }
+          }) as any;
+
         }
 
-        openApi.paths[path][this.getMethod(httpEvent.method)] = operation;
+        openApi.paths[httpPath][this.getMethod(httpEvent.method)] = operation;
       }
     }
 
@@ -138,6 +157,7 @@ export class Generator {
 
     return openApi;
   }
+
   private handleParameters(
     httpEvent: HttpEvent
   ): OpenAPIV3.ParameterObject[] | undefined {
@@ -245,6 +265,7 @@ export class Generator {
         };
         delete schemaJSON.schema['$schema'];
         openApi.components.schemas[schemaJSON.name] = schemaJSON.schema as any;
+
       }
     }
 

@@ -60,12 +60,12 @@ export class ServerlessPlugin {
 
   private async generate() {
     this.log.notice('Generate open api');
-    const openApi = new Generator(this.log).generate(this.serverless);
+    const openApi = await new Generator(this.log).generate(this.serverless);
     const customOpenApi = this.serverless.service.custom
       .openapi as CustomProperties;
 
 
-    const api = await $RefParser.bundle(openApi as any, {
+    const api = await $RefParser.bundle(JSON.parse(JSON.stringify(openApi as any)), {
       resolve: {
         file: {
             canRead: ['.yml', '.json'],
@@ -77,9 +77,10 @@ export class ServerlessPlugin {
         }
       }
     });
-
     this.log.debug(`API name: ${openApi.info.title}, Version: ${openApi.info.version}`);
     this.saveToFile(api, customOpenApi.out);
+
+
   }
 
   private saveToFile(openApi: any, out = 'openapi.json') {
