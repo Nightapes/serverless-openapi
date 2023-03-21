@@ -1,6 +1,53 @@
 import { JSONSchema7 } from 'json-schema';
 
-export const functionEventProperties = {
+const requestParametersSchema: JSONSchema7 = {
+  type: 'object',
+  additionalProperties: {
+    anyOf: [
+      {
+        type: 'object',
+        required: ['type'],
+        properties: {
+          type: {
+            type: 'string',
+            enum: ['string', 'enum', 'number', 'boolean'],
+          },
+          description: {
+            type: 'string',
+          },
+          deprecated: {
+            type: 'boolean',
+          },
+          isArray: {
+            type: 'boolean',
+          },
+          format: {
+            type: 'string',
+            enum: [
+              'int32',
+              'int64',
+              'float',
+              'double',
+              'binary',
+              'byte',
+              'date',
+              'date-time',
+              'password',
+            ],
+          },
+          options: {
+            type: 'array',
+            items: {
+              type: 'string',
+            },
+          },
+        },
+      },
+    ],
+  },
+};
+
+export const functionEventProperties: JSONSchema7 = {
   properties: {
     tags: {
       type: 'array',
@@ -9,6 +56,20 @@ export const functionEventProperties = {
       },
     },
     defaultResponse: { type: 'boolean' },
+    parameterMappers: {
+      type: 'object',
+      additionalProperties: true,
+      properties: {
+        parameters: {
+          type: 'object',
+          properties: {
+            querystrings: requestParametersSchema,
+            headers: requestParametersSchema,
+            paths: requestParametersSchema,
+          },
+        },
+      },
+    },
     responseSchemas: {
       type: 'object',
       additionalProperties: false,
@@ -30,4 +91,4 @@ export const functionEventProperties = {
       },
     },
   },
-} as JSONSchema7;
+};

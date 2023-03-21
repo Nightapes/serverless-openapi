@@ -46,6 +46,7 @@ export class ServerlessPlugin {
 
     serverless.configSchemaHandler.defineCustomProperties(customProperties);
 
+
     serverless.configSchemaHandler.defineFunctionEventProperties(
       'aws',
       'http',

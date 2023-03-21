@@ -120,7 +120,7 @@ functions:
 
 Following format to add paramters is supported. See [SLS Doc](https://www.serverless.com/framework/docs/providers/aws/events/apigateway#request-parameters)
 
-All parameters will be interpreted as `string`
+All parameters will be interpreted as `string` expect you add a parameterMapper.
 
 ```yml
 functions:
@@ -138,6 +138,23 @@ functions:
                 foo: false
               paths:
                 bar: false
+          parameterMappers:
+            querystrings:
+              foo:
+                type: enum
+                options:
+                  - csv
+                  - json
+              bar:
+                type: number
+                # Optional
+                description: "Description"
+                # Optional
+                deprecated: true
+                # Optional
+                isArray: false
+                # Optional
+                format: "int32"
 ```
 
 ### Authorization

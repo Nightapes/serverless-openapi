@@ -10,6 +10,23 @@ import $RefParser from '@apidevtools/json-schema-ref-parser';
 import { readFile } from 'fs/promises';
 import * as path from 'path';
 
+interface ParameterMapper {
+  type: 'string' | 'enum' | 'number' | 'boolean';
+  description?: string;
+  deprecated?: boolean;
+  isArray?: boolean;
+  format?:
+    | 'int32'
+    | 'int64'
+    | 'float'
+    | 'double'
+    | 'binary'
+    | 'byte'
+    | 'date'
+    | 'date-time'
+    | 'password';
+  options?: string[];
+}
 interface HttpEvent extends Aws.Http {
   operationId: string;
   tags: string[];
@@ -20,6 +37,11 @@ interface HttpEvent extends Aws.Http {
   };
   responseSchemas?: {
     [key: string]: { 'application/json': Schema };
+  };
+  parameterMappers: {
+    querystrings: {[key: string]: ParameterMapper}
+    headers:{[key: string]: ParameterMapper}
+    paths: {[key: string]: ParameterMapper}
   };
 }
 
@@ -83,7 +105,7 @@ export class Generator {
           openApi
         );
         // Clean up, as not needed in serverless
-        delete httpEvent.responseSchemas
+        delete httpEvent.responseSchemas;
 
         const auth: OpenAPIV3.SecurityRequirementObject[] | undefined = [];
         if (httpEvent.authorizer) {
@@ -127,19 +149,28 @@ export class Generator {
             openApi
           );
 
-          httpEvent.request.schemas = await $RefParser.dereference(JSON.parse(JSON.stringify(httpEvent.request.schemas)), {
-            resolve: {
-              file: {
+          httpEvent.request.schemas = (await $RefParser.dereference(
+            JSON.parse(JSON.stringify(httpEvent.request.schemas)),
+            {
+              resolve: {
+                file: {
                   canRead: ['.yml', '.json'],
                   read: async (ref) => {
-                    const orgRef = (ref.url as string).replace(process.cwd(), "")
-                    const realPath = path.join(process.cwd(), customOpenApi.schemaFolder, orgRef )
-                    return await readFile(realPath)
-                  }
-              }
+                    const orgRef = (ref.url as string).replace(
+                      process.cwd(),
+                      ''
+                    );
+                    const realPath = path.join(
+                      process.cwd(),
+                      customOpenApi.schemaFolder,
+                      orgRef
+                    );
+                    return await readFile(realPath);
+                  },
+                },
+              },
             }
-          }) as any;
-
+          )) as any;
         }
 
         openApi.paths[httpPath][this.getMethod(httpEvent.method)] = operation;
@@ -158,10 +189,113 @@ export class Generator {
     return openApi;
   }
 
+  private parameterMapper(
+    name: string,
+    required: boolean,
+    location: 'querystrings' | 'headers' | 'paths',
+    httpEvent: HttpEvent
+  ) : OpenAPIV3.ParameterObject {
+
+    let inType = "path"
+    switch (location) {
+      case "headers":
+        inType = "header"
+        break;
+      case "paths":
+          inType = "path"
+          break;
+    }
+
+    if (!httpEvent.parameterMappers) {
+      return {
+        in: inType,
+        required: required,
+        name: name,
+        schema: { type: 'string' },
+      };
+    }
+
+    if (!httpEvent.parameterMappers[location]) {
+      return {
+        in: inType,
+        required: required,
+        name: name,
+        schema: { type: 'string' },
+      };
+    }
+
+
+    if (!httpEvent.parameterMappers[location][name]) {
+      return {
+        in: inType,
+        required: required,
+        name: name,
+        schema: { type: 'string' },
+      };
+    }
+
+    const mapper = httpEvent.parameterMappers[location][name];
+
+    if (mapper.isArray) {
+      if (mapper.type === "enum") {
+        return {
+          in: inType,
+          required: required,
+          name: name,
+          schema: {
+            type: "array",
+            items: {
+              type: "string",
+             enum: mapper.options ?? []
+            }
+          },
+        };
+      }
+
+
+      return {
+        in: inType,
+        required: required,
+        name: name,
+        schema: {
+          type: "array",
+          items: {
+            type: mapper.type, format: mapper.format
+          }
+        },
+        deprecated: mapper.deprecated,
+        description: mapper.description,
+
+      };
+    }
+
+
+    if (mapper.type === "enum") {
+      return {
+        in: inType,
+        required: required,
+        name: name,
+        schema: {
+          type: "string",
+           enum: mapper.options ?? []
+        },
+      };
+    }
+
+    return {
+      in: inType,
+      required: required,
+      name: name,
+      schema: { type: mapper.type, format: mapper.format },
+      deprecated: mapper.deprecated,
+      description: mapper.description,
+    };
+  }
+
   private handleParameters(
     httpEvent: HttpEvent
   ): OpenAPIV3.ParameterObject[] | undefined {
-    const paramaters: OpenAPIV3.ParameterObject[] = [];
+    const parameters: OpenAPIV3.ParameterObject[] = [];
     if (!httpEvent.request) {
       return;
     }
@@ -175,12 +309,7 @@ export class Generator {
     )) {
       const name = para[0];
       const required = para[1];
-      paramaters.push({
-        in: 'path',
-        required: required,
-        name: name,
-        schema: { type: 'string' },
-      });
+      parameters.push(this.parameterMapper(name, required, "paths", httpEvent ));
     }
 
     for (const para of Object.entries(
@@ -188,12 +317,8 @@ export class Generator {
     )) {
       const name = para[0];
       const required = para[1];
-      paramaters.push({
-        in: 'query',
-        required: required,
-        name: name,
-        schema: { type: 'string' },
-      });
+      parameters.push(this.parameterMapper(name, required, "querystrings", httpEvent ));
+
     }
 
     for (const para of Object.entries(
@@ -201,14 +326,10 @@ export class Generator {
     )) {
       const name = para[0];
       const required = para[1];
-      paramaters.push({
-        in: 'header',
-        required: required,
-        name: name,
-        schema: { type: 'string' },
-      });
+      parameters.push(this.parameterMapper(name, required, "headers", httpEvent ));
     }
-    return paramaters.length === 0 ? undefined : paramaters;
+
+    return parameters.length === 0 ? undefined : parameters;
   }
 
   private handleRequestBody(
@@ -265,7 +386,6 @@ export class Generator {
         };
         delete schemaJSON.schema['$schema'];
         openApi.components.schemas[schemaJSON.name] = schemaJSON.schema as any;
-
       }
     }
 
