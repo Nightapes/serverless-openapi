@@ -204,6 +204,9 @@ export class Generator {
       case "paths":
           inType = "path"
           break;
+      case "querystrings":
+         inType = "query"
+         break;
     }
 
     if (!httpEvent.parameterMappers) {
