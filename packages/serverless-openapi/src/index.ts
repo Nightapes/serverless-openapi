@@ -18,11 +18,7 @@ export class ServerlessPlugin {
   commands: CommandsDefinition;
   log: Log;
 
-  constructor(
-    serverless: Serverless,
-    options: Serverless.Options & { [key: string]: any },
-    { log }: { log: Log }
-  ) {
+  constructor(serverless: Serverless, options: Serverless.Options & { [key: string]: any }, { log }: { log: Log }) {
     this.serverless = serverless;
     this.options = options;
     this.log = log;
@@ -34,9 +30,7 @@ export class ServerlessPlugin {
         options: {
           out: {
             type: 'string',
-            usage:
-              'Specify the output location' +
-              '(e.g. "--out \'./openapi.yaml\'" or "-o \'./openapi.json\'")',
+            usage: 'Specify the output location' + '(e.g. "--out \'./openapi.yaml\'" or "-o \'./openapi.json\'")',
             required: false,
             shortcut: 'o',
           },
@@ -46,12 +40,7 @@ export class ServerlessPlugin {
 
     serverless.configSchemaHandler.defineCustomProperties(customProperties);
 
-
-    serverless.configSchemaHandler.defineFunctionEventProperties(
-      'aws',
-      'http',
-      functionEventProperties
-    );
+    serverless.configSchemaHandler.defineFunctionEventProperties('aws', 'http', functionEventProperties);
 
     this.hooks = {
       'openapi:serverless': this.generate.bind(this),
@@ -62,26 +51,22 @@ export class ServerlessPlugin {
   private async generate() {
     this.log.notice('Generate open api');
     const openApi = await new Generator(this.log).generate(this.serverless);
-    const customOpenApi = this.serverless.service.custom
-      .openapi as CustomProperties;
-
+    const customOpenApi = this.serverless.service.custom.openapi as CustomProperties;
 
     const api = await $RefParser.bundle(JSON.parse(JSON.stringify(openApi as any)), {
       resolve: {
         file: {
-            canRead: ['.yml', '.json'],
-            read: async (ref) => {
-              const orgRef = (ref.url as string).replace(process.cwd(), "")
-              const realPath = path.join(process.cwd(), customOpenApi.schemaFolder, orgRef )
-              return await readFile(realPath)
-            }
-        }
-      }
+          canRead: ['.yml', '.json'],
+          read: async (ref) => {
+            const orgRef = (ref.url as string).replace(process.cwd(), '');
+            const realPath = path.join(process.cwd(), customOpenApi.schemaFolder, orgRef);
+            return await readFile(realPath);
+          },
+        },
+      },
     });
     this.log.debug(`API name: ${openApi.info.title}, Version: ${openApi.info.version}`);
     this.saveToFile(api, customOpenApi.out);
-
-
   }
 
   private saveToFile(openApi: any, out = 'openapi.json') {

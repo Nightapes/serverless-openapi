@@ -2,12 +2,10 @@ import Serverless from 'serverless';
 import { OpenAPIV3 } from 'openapi-types';
 import { Schema } from './response.types';
 import { CustomProperties } from './custom.properties';
-import Aws, {
-  HttpRequestParametersValidation,
-} from 'serverless/plugins/aws/provider/awsProvider';
+import Aws, { HttpRequestParametersValidation } from 'serverless/plugins/aws/provider/awsProvider';
 import { Log } from './sls.types';
 import $RefParser from '@apidevtools/json-schema-ref-parser';
-import { readFile } from 'fs/promises';
+import { readFile, readdir } from 'fs/promises';
 import * as path from 'path';
 
 interface ParameterMapper {
@@ -15,16 +13,7 @@ interface ParameterMapper {
   description?: string;
   deprecated?: boolean;
   isArray?: boolean;
-  format?:
-    | 'int32'
-    | 'int64'
-    | 'float'
-    | 'double'
-    | 'binary'
-    | 'byte'
-    | 'date'
-    | 'date-time'
-    | 'password';
+  format?: 'int32' | 'int64' | 'float' | 'double' | 'binary' | 'byte' | 'date' | 'date-time' | 'password';
   options?: string[];
 }
 interface HttpEvent extends Aws.Http {
@@ -39,9 +28,9 @@ interface HttpEvent extends Aws.Http {
     [key: string]: { 'application/json': Schema };
   };
   parameterMappers: {
-    querystrings: {[key: string]: ParameterMapper}
-    headers:{[key: string]: ParameterMapper}
-    paths: {[key: string]: ParameterMapper}
+    querystrings: { [key: string]: ParameterMapper };
+    headers: { [key: string]: ParameterMapper };
+    paths: { [key: string]: ParameterMapper };
   };
 }
 
@@ -73,8 +62,38 @@ export class Generator {
 
     let defaultSchema: OpenAPIV3.ResponsesObject | undefined;
 
+    try {
+      const files = await readdir(customOpenApi.schemaFolder);
+
+      for (const file of files) {
+        if (file.endsWith('.json') || file.endsWith('.yml')) {
+          const name = this.capitalizeFirstLetter(file.split('.')[0]);
+          openApi.components.schemas[name] = {
+            $ref: './' + file,
+          };
+        }
+      }
+    } catch (error) {
+      this.log.debug('No types found');
+    }
+
+    try {
+      const files = await readdir(customOpenApi.schemaFolder + '/shared');
+
+      for (const file of files) {
+        if (file.endsWith('.json') || file.endsWith('.yml')) {
+          const name = this.capitalizeFirstLetter(file.split('.')[0]);
+          openApi.components.schemas[name] = {
+            $ref: './shared/' + file,
+          };
+        }
+      }
+    } catch (error) {
+      this.log.debug('No shared types found');
+    }
+
     if (customOpenApi.defaultResponse) {
-      defaultSchema = this.handleResponses(
+      defaultSchema = await this.handleResponses(
         {
           default: customOpenApi.defaultResponse,
         },
@@ -100,10 +119,7 @@ export class Generator {
           openApi.paths[httpPath] = {};
         }
 
-        const responses = this.handleResponses(
-          httpEvent.responseSchemas,
-          openApi
-        );
+        const responses = await this.handleResponses(httpEvent.responseSchemas, openApi);
         // Clean up, as not needed in serverless
         delete httpEvent.responseSchemas;
 
@@ -115,7 +131,14 @@ export class Generator {
             if (typeof httpEvent.authorizer === 'string') {
               name = httpEvent.authorizer;
             } else {
-              name = httpEvent.authorizer.name;
+              if (httpEvent.authorizer.name) {
+                name = httpEvent.authorizer.name;
+              }
+
+              // Fallback to auth if id and no name is specified
+              if (httpEvent.authorizer.type && Object.keys(customOpenApi.securitySchemes).length === 1) {
+                name = key;
+              }
             }
 
             if (key === name) {
@@ -144,10 +167,7 @@ export class Generator {
         operation.parameters = this.handleParameters(httpEvent);
 
         if (httpEvent.request && httpEvent.request.schemas) {
-          operation.requestBody = this.handleRequestBody(
-            httpEvent.request.schemas,
-            openApi
-          );
+          operation.requestBody = this.handleRequestBody(httpEvent.request.schemas, openApi);
 
           httpEvent.request.schemas = (await $RefParser.dereference(
             JSON.parse(JSON.stringify(httpEvent.request.schemas)),
@@ -156,15 +176,8 @@ export class Generator {
                 file: {
                   canRead: ['.yml', '.json'],
                   read: async (ref) => {
-                    const orgRef = (ref.url as string).replace(
-                      process.cwd(),
-                      ''
-                    );
-                    const realPath = path.join(
-                      process.cwd(),
-                      customOpenApi.schemaFolder,
-                      orgRef
-                    );
+                    const orgRef = (ref.url as string).replace(process.cwd(), '');
+                    const realPath = path.join(process.cwd(), customOpenApi.schemaFolder, orgRef);
                     return await readFile(realPath);
                   },
                 },
@@ -194,19 +207,18 @@ export class Generator {
     required: boolean,
     location: 'querystrings' | 'headers' | 'paths',
     httpEvent: HttpEvent
-  ) : OpenAPIV3.ParameterObject {
-
-    let inType = "path"
+  ): OpenAPIV3.ParameterObject {
+    let inType = 'path';
     switch (location) {
-      case "headers":
-        inType = "header"
+      case 'headers':
+        inType = 'header';
         break;
-      case "paths":
-          inType = "path"
-          break;
-      case "querystrings":
-         inType = "query"
-         break;
+      case 'paths':
+        inType = 'path';
+        break;
+      case 'querystrings':
+        inType = 'query';
+        break;
     }
 
     if (!httpEvent.parameterMappers) {
@@ -227,7 +239,6 @@ export class Generator {
       };
     }
 
-
     if (!httpEvent.parameterMappers[location][name]) {
       return {
         in: inType,
@@ -240,47 +251,45 @@ export class Generator {
     const mapper = httpEvent.parameterMappers[location][name];
 
     if (mapper.isArray) {
-      if (mapper.type === "enum") {
+      if (mapper.type === 'enum') {
         return {
           in: inType,
           required: required,
           name: name,
           schema: {
-            type: "array",
+            type: 'array',
             items: {
-              type: "string",
-             enum: mapper.options ?? []
-            }
+              type: 'string',
+              enum: mapper.options ?? [],
+            },
           },
         };
       }
 
-
       return {
         in: inType,
         required: required,
         name: name,
         schema: {
-          type: "array",
+          type: 'array',
           items: {
-            type: mapper.type, format: mapper.format
-          }
+            type: mapper.type,
+            format: mapper.format,
+          },
         },
         deprecated: mapper.deprecated,
         description: mapper.description,
-
       };
     }
 
-
-    if (mapper.type === "enum") {
+    if (mapper.type === 'enum') {
       return {
         in: inType,
         required: required,
         name: name,
         schema: {
-          type: "string",
-           enum: mapper.options ?? []
+          type: 'string',
+          enum: mapper.options ?? [],
         },
       };
     }
@@ -295,9 +304,7 @@ export class Generator {
     };
   }
 
-  private handleParameters(
-    httpEvent: HttpEvent
-  ): OpenAPIV3.ParameterObject[] | undefined {
+  private handleParameters(httpEvent: HttpEvent): OpenAPIV3.ParameterObject[] | undefined {
     const parameters: OpenAPIV3.ParameterObject[] = [];
     if (!httpEvent.request) {
       return;
@@ -307,38 +314,28 @@ export class Generator {
       return;
     }
 
-    for (const para of Object.entries(
-      httpEvent.request.parameters?.paths ?? {}
-    )) {
+    for (const para of Object.entries(httpEvent.request.parameters?.paths ?? {})) {
       const name = para[0];
       const required = para[1];
-      parameters.push(this.parameterMapper(name, required, "paths", httpEvent ));
+      parameters.push(this.parameterMapper(name, required, 'paths', httpEvent));
     }
 
-    for (const para of Object.entries(
-      httpEvent.request.parameters?.querystrings ?? {}
-    )) {
+    for (const para of Object.entries(httpEvent.request.parameters?.querystrings ?? {})) {
       const name = para[0];
       const required = para[1];
-      parameters.push(this.parameterMapper(name, required, "querystrings", httpEvent ));
-
+      parameters.push(this.parameterMapper(name, required, 'querystrings', httpEvent));
     }
 
-    for (const para of Object.entries(
-      httpEvent.request.parameters?.headers ?? {}
-    )) {
+    for (const para of Object.entries(httpEvent.request.parameters?.headers ?? {})) {
       const name = para[0];
       const required = para[1];
-      parameters.push(this.parameterMapper(name, required, "headers", httpEvent ));
+      parameters.push(this.parameterMapper(name, required, 'headers', httpEvent));
     }
 
     return parameters.length === 0 ? undefined : parameters;
   }
 
-  private handleRequestBody(
-    requestSchemas: { 'application/json': any },
-    openApi: OpenAPIV3.Document
-  ) {
+  private handleRequestBody(requestSchemas: { 'application/json': any }, openApi: OpenAPIV3.Document) {
     const request: OpenAPIV3.RequestBodyObject = {
       content: {},
       required: true,
@@ -346,7 +343,7 @@ export class Generator {
 
     const schemaJSON = requestSchemas['application/json'];
     request.description = schemaJSON.description;
-    const name = schemaJSON.customName ?? schemaJSON.name;
+    const name = this.capitalizeFirstLetter(schemaJSON.customName ?? schemaJSON.name);
 
     if (schemaJSON.schema) {
       request['content'] = {
@@ -362,12 +359,10 @@ export class Generator {
     return request;
   }
 
-  private handleResponses(
-    responseSchemas:
-      | { [key: string]: { 'application/json': Schema } }
-      | undefined,
+  private async handleResponses(
+    responseSchemas: { [key: string]: { 'application/json': Schema } } | undefined,
     openApi: OpenAPIV3.Document
-  ): OpenAPIV3.ResponsesObject | undefined {
+  ): Promise<OpenAPIV3.ResponsesObject | undefined> {
     const responses: OpenAPIV3.ResponsesObject = {};
 
     if (!responseSchemas) {
@@ -379,20 +374,51 @@ export class Generator {
       responses[code] = {
         description: schemaJSON.description,
       };
-      if (schemaJSON.schema) {
+      if (schemaJSON.schema && schemaJSON.schema.type !== 'array') {
+        const name = this.capitalizeFirstLetter(schemaJSON.name);
         responses[code]['content'] = {
           'application/json': {
             schema: {
-              $ref: '#/components/schemas/' + schemaJSON.name,
+              $ref: '#/components/schemas/' + name,
             },
           },
         };
         delete schemaJSON.schema['$schema'];
-        openApi.components.schemas[schemaJSON.name] = schemaJSON.schema as any;
+        openApi.components.schemas[name] = schemaJSON.schema as any;
+      }
+
+      if (schemaJSON.schema && schemaJSON.schema.type === 'array' && schemaJSON.schema.title) {
+        const name = this.capitalizeFirstLetter(schemaJSON.schema.title);
+        responses[code]['content'] = {
+          'application/json': {
+            schema: {
+              items: {
+                $ref: '#/components/schemas/' + name,
+              },
+            },
+          },
+        };
+        delete schemaJSON.schema['$schema'];
+        openApi.components.schemas[name] = schemaJSON.schema.items as any;
+      }
+
+      if (schemaJSON.schema && schemaJSON.schema.type === 'array' && !schemaJSON.schema.title) {
+        responses[code]['content'] = {
+          'application/json': {
+            schema: {
+              items: schemaJSON.schema.items,
+            },
+          },
+        };
+        delete schemaJSON.schema['$schema'];
       }
     }
 
     return responses;
+  }
+
+  private capitalizeFirstLetter(value: string) {
+    return value.charAt(0).toUpperCase() + value.slice(1);
   }
 
   private getMethod(method: string): OpenAPIV3.HttpMethods {

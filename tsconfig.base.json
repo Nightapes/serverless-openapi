@@ -15,9 +15,7 @@
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@nightapes/serverless-openapi": [
-        "packages/serverless-openapi/src/index.ts"
-      ]
+      "@nightapes/serverless-openapi": ["packages/serverless-openapi/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

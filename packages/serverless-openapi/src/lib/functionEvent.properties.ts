@@ -23,17 +23,7 @@ const requestParametersSchema: JSONSchema7 = {
           },
           format: {
             type: 'string',
-            enum: [
-              'int32',
-              'int64',
-              'float',
-              'double',
-              'binary',
-              'byte',
-              'date',
-              'date-time',
-              'password',
-            ],
+            enum: ['int32', 'int64', 'float', 'double', 'binary', 'byte', 'date', 'date-time', 'password'],
           },
           options: {
             type: 'array',
