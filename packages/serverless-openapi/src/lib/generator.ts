@@ -393,6 +393,7 @@ export class Generator {
           'application/json': {
             schema: {
               items: {
+                type: 'array',
                 $ref: '#/components/schemas/' + name,
               },
             },
@@ -407,6 +408,7 @@ export class Generator {
           'application/json': {
             schema: {
               items: schemaJSON.schema.items,
+              type: 'array',
             },
           },
         };
