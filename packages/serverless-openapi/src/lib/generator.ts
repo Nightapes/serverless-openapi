@@ -392,8 +392,8 @@ export class Generator {
         responses[code]['content'] = {
           'application/json': {
             schema: {
+              type: 'array',
               items: {
-                type: 'array',
                 $ref: '#/components/schemas/' + name,
               },
             },
@@ -407,8 +407,8 @@ export class Generator {
         responses[code]['content'] = {
           'application/json': {
             schema: {
-              items: schemaJSON.schema.items,
               type: 'array',
+              items: schemaJSON.schema.items,
             },
           },
         };
